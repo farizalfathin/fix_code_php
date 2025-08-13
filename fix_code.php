@@ -51,7 +51,7 @@ if (isset($_GET['no_kes']) && $_GET['no_kes'] != '') {
             $edit_status_baiki = ($post_status_baiki != '' ? "'$post_status_baiki'" : "NULL");
 
             $post_catatan = (isset($_POST['catatan']) && $_POST['catatan'] != '' ?  Es::cape($_POST['catatan']) : '');
-            $replace_catatan = ($post_catatan != '' ? str_replace(array("\r\n", "\r", "\n"), '<<>>', $post_catatan) : '');
+            $replace_catatan = ($post_catatan != '' ? str_replace(array('\r\n', '\r', '\n'), '<<>>', $post_catatan) : '');
             $toupper_catatan = ($replace_catatan != '' ? strtoupper($replace_catatan) : '');
             $edit_catatan = ($toupper_catatan != '' ? "'$toupper_catatan'" : "NULL");
 
@@ -60,43 +60,12 @@ if (isset($_GET['no_kes']) && $_GET['no_kes'] != '') {
             $edit_tarikh = "'$tarikh'";
             $edit_masa = "'$masa'";
 
-            // === Proses upload file jika ada ===
-            if (isset($_FILES['nama_fail']) && $_FILES['nama_fail']['error'] == 0) {
-                $fileTmpPath = $_FILES['nama_fail']['tmp_name'];
-                $fileName = $_FILES['nama_fail']['name'];
-                $fileSize = $_FILES['nama_fail']['size'];
-                $fileType = $_FILES['nama_fail']['type'];
-
-                $tmp = explode(".", $fileName);
-                $fileExtension = strtolower(end($tmp));
-
-                $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
-
-                if (!in_array($fileExtension, $allowedExtensions)) {
-                    $flashMsg->add('e', 'Jenis fail tidak dibenarkan! (Hanya JPG, PNG, PDF)');
-                } elseif ($fileSize > 3 * 1024 * 1024) {
-                    $flashMsg->add('e', 'Saiz fail melebihi 3MB!');
-                } else {
-                    $uploadpath = '../../media/aduan';
-                    if (!is_dir($uploadpath)) {
-                        mkdir($uploadpath, 0777, true);
-                    }
-
-                    $newFileName = uniqid() . '.' . $fileExtension;
-                    $dest_path = $uploadpath . '/' . $newFileName;
-
-                    if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                        // Bisa simpan path ke database di sini jika diperlukan
-                    } else {
-                        $flashMsg->add('e', 'Gagal upload fail!');
-                    }
-                }
-            }
-
             if ($post_status_baiki == '' && $post_catatan == '') {
+
                 $flashMsg->add('e', 'Sila isi kesemua bahagian yang wajib diisi!', getUrlGet());
             } 
             else {
+
                 $update_aduan = "UPDATE cms_sql.aduan_kerosakan 
                     SET aduan_kerosakan.status_baiki = $edit_status_baiki, 
                         aduan_kerosakan.catatan = $edit_catatan, 
@@ -222,45 +191,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['btnUpdate'])) {
         // Tentukan ekstensi yang diizinkan
         $allowedfileExtensions = ['jpg', 'jpeg', 'png', 'gif'];
 
-        if (in_array($fileExtension, $allowedfileExtensions)) {
-            // Nama file baru unik
-            $newFileName = uniqid('img_', true) . '.' . $fileExtension;
-
-            // Pastikan folder tujuan ada
+        if (!in_array($fileExtension, $allowedExtensions)) {
+            $flashMsg-> add('e','Jenis fail tidak dibenarkan! (Hanya JPG, PNG, PDF)');
+        } elseif ($fileSize > 3 * 1024 * 1024) {
+            $flashMsg-> add('e','Saiz fail melebihi 3MB!');
+        } else {
             if (!is_dir($uploadpath)) {
                 mkdir($uploadpath, 0777, true);
+                chmod('/media', 0777);
+                chmod('/media/aduan',0777);
             }
 
-            $dest_path = $uploadpath . '/' . $newFileName;
+            $newFileName = uniqid() . '.' . $fileExtension;
+            $dest_path = $uploadpath . $_FILES['nama_fail']['name'];
 
-            if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                $uploadedFileName = $newFileName;
-            } else {
-                echo "<script>alert('Gagal memindahkan file ke folder tujuan.');</script>";
+            if (move_uploaded_file($_FILES['nama_fail']['tmp_name'], $dest_path)) {
+                    echo "Berjaya upload ke: ".$dest_path;
+            }else {
+                echo "Gagal upload ke: " . $dest_path;
             }
-        } else {
-            echo "<script>alert('Jenis file tidak diizinkan. Hanya JPG, JPEG, PNG, GIF.');</script>";
+             exit;   
         }
-    }
-
-    // --- Query Update ---
-    $sql = "UPDATE aduan 
-            SET tajuk = ?, kategori = ?, keterangan = ?, tarikh_aduan = ?, status_aduan = ?" .
-            ($uploadedFileName ? ", nama_fail = ?" : "") .
-            " WHERE id_aduan = ?";
-
-    $stmt = $conn->prepare($sql);
-
-    if ($uploadedFileName) {
-        $stmt->bind_param("ssssssi", $tajuk, $kategori, $keterangan, $tarikh_aduan, $status_aduan, $uploadedFileName, $id_aduan);
-    } else {
-        $stmt->bind_param("sssssi", $tajuk, $kategori, $keterangan, $tarikh_aduan, $status_aduan, $id_aduan);
-    }
-
-    if ($stmt->execute()) {
-        echo "<script>alert('Aduan berhasil diperbarui.'); window.location.href='senarai_aduan.php';</script>";
-    } else {
-        echo "<script>alert('Gagal memperbarui aduan.');</script>";
     }
 }
 ?>
@@ -450,7 +401,6 @@ $(document).ready(function() {
                         <td class="text-left va-mid">:</td>
                         <td class="text-left va-mid">
                         <input type="file" name="nama_fail" id="nama_fail">
-                             </form>
                          <?php if (isset($_GET['remove']) && $_GET['remove'] != '') { ?>
                                     <?php } ?> 
                         </td>
